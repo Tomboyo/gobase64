@@ -3,36 +3,42 @@ package main
 import (
 	"errors"
 	"io"
-	"log"
 	"os"
 )
 
 func main() {
-	reader := os.Stdin
-	writer := os.Stdout
+	Encode(os.Stdin, os.Stdout)
+}
 
-	inbuf := make([]byte, 1024)
-	outbuf := make([]byte, 1368)
+func Encode(reader io.Reader, writer io.Writer) (int, error) {
+	inbuf := make([]byte, 3)
+	outbuf := make([]byte, 4)
+	written := 0
 
 	for {
 		octetsIn, err := reader.Read(inbuf)
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			log.Fatal("Unexpected IO error", err)
+			return written, err
 		}
 
-		n, err := Encode(&inbuf, octetsIn, &outbuf)
-
+		n, err := encodeArray(inbuf, octetsIn, outbuf)
 		if err != nil {
-			log.Fatal("Unexpected Base64 encoding error", err)
+			return written, err
 		}
 
-		writer.Write(outbuf[:n])
+		n, err = writer.Write(outbuf[:n])
+		written += n
+		if err != nil {
+			return written, err
+		}
 	}
+
+	return written, nil
 }
 
-func Encode(input *[]byte, octets int, output *[]byte) (int, error) {
+func encodeArray(in []byte, octets int, out []byte) (int, error) {
 	triplets := octets / 3
 	remainder := octets % 3
 	var outlen int
@@ -42,12 +48,10 @@ func Encode(input *[]byte, octets int, output *[]byte) (int, error) {
 		outlen = triplets*4 + 4
 	}
 
-	if outlen > len(*output) {
+	// TODO -- slices can append
+	if outlen > len(out) {
 		return 0, errors.New("output buffer is too small")
 	}
-
-	in := *input
-	out := *output
 
 	// 1. read all triplets
 	for triplet := 0; triplet < triplets; triplet++ {
