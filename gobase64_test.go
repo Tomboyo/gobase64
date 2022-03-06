@@ -87,33 +87,3 @@ func TestLargeInput(t *testing.T) {
 		t.Fail()
 	}
 }
-
-// func TestSmallOutputBuffer(t *testing.T) {
-// 	input := []byte("aaaaaaaaaa")
-// 	output := make([]byte, 4)
-
-// 	n, err := EncodeArray(input, len(input), output)
-
-// 	if n != 0 || err == nil {
-// 		t.Logf("\nInput:\n%v\t%v", len(input), input)
-// 		t.Logf("\nExpected:\n%v\t%v\nActual:\n%v\t%v", 0, []byte{}, n, output[:n])
-// 		t.Logf("err: %v", err)
-// 		t.Fail()
-// 	}
-// }
-
-// func TestEncodeArrayPartOfBufferOnly(t *testing.T) {
-// 	input := []byte("aaaaa")
-// 	output := make([]byte, 256)
-// 	octets := 3
-
-// 	n, err := EncodeArray(input, octets, output)
-
-// 	expected := []byte("YWFh")
-// 	if n != len(expected) || !bytes.Equal(output[:n], expected) || err != nil {
-// 		t.Logf("\nInput:\n%v\t%v", octets, input)
-// 		t.Logf("\nExpected:\n%v\t%v\nActual:\n%v\t%v", len(expected), expected, n, output[:n])
-// 		t.Logf("err: %v", err)
-// 		t.Fail()
-// 	}
-// }
