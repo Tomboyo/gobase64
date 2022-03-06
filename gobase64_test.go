@@ -2,101 +2,30 @@ package main
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 )
 
-func TestCharacters(t *testing.T) {
-	input := []byte{
-		0, 16, 131, 16, 81, 135, 32, 146,
-		139, 48, 211, 143, 65, 20, 147, 81,
-		85, 151, 97, 150, 155, 113, 215, 159,
-		130, 24, 163, 146, 89, 167, 162, 154,
-		171, 178, 219, 175, 195, 28, 179, 211,
-		93, 183, 227, 158, 187, 243, 223, 191}
-	output := make([]byte, 256)
-
-	n, err := Encode(&input, len(input), &output)
-
-	expected := []byte("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
-	if n != len(expected) || !bytes.Equal(output[:n], expected) || err != nil {
-		t.Logf("\nInput:\n%v\t%v", len(input), input)
-		t.Logf("\nExpected:\n%v\t%v\nActual:\n%v\t%v", len(expected), expected, n, output[:n])
-		t.Logf("err: %v", err)
+func TestSampleInput(t *testing.T) {
+	input := "Many hands make light work."
+	expected := "TWFueSBoYW5kcyBtYWtlIGxpZ2h0IHdvcmsu"
+	var buffer bytes.Buffer
+	btoa(strings.NewReader(input), &buffer)
+	actual := buffer.String()
+	if actual != expected {
+		t.Logf("\nExpected:\n%v\nActual:\n%v", expected, actual)
 		t.Fail()
 	}
 }
 
-func TestPaddingZero(t *testing.T) {
-	input := []byte("aaa")
-	output := make([]byte, 256)
-
-	n, err := Encode(&input, len(input), &output)
-
-	expected := []byte("YWFh")
-	if n != len(expected) || !bytes.Equal(output[:n], expected) || err != nil {
-		t.Logf("\nInput:\n%v\t%v", len(input), input)
-		t.Logf("\nExpected:\n%v\t%v\nActual:\n%v\t%v", len(expected), expected, n, output[:n])
-		t.Logf("err: %v", err)
-		t.Fail()
-	}
-}
-
-func TestPaddingOne(t *testing.T) {
-	input := []byte("aaaa")
-	output := make([]byte, 256)
-
-	n, err := Encode(&input, len(input), &output)
-
-	expected := []byte("YWFhYQ==")
-	if n != len(expected) || !bytes.Equal(output[:n], expected) || err != nil {
-		t.Logf("\nInput:\n%v\t%v", len(input), input)
-		t.Logf("\nExpected:\n%v\t%v\nActual:\n%v\t%v", len(expected), expected, n, output[:n])
-		t.Logf("err: %v", err)
-		t.Fail()
-	}
-}
-
-func TestPaddingTwo(t *testing.T) {
-	input := []byte("aaaaa")
-	output := make([]byte, 255)
-
-	n, err := Encode(&input, len(input), &output)
-
-	expected := []byte("YWFhYWE=")
-	if n != len(expected) || !bytes.Equal(output[:n], expected) || err != nil {
-		t.Logf("\nInput:\n%v\t%v", len(input), input)
-		t.Logf("\nExpected:\n%v\t%v\nActual:\n%v\t%v", len(expected), expected, n, output[:n])
-		t.Logf("err: %v", err)
-		t.Fail()
-	}
-}
-
-func TestEncodePartOfBufferOnly(t *testing.T) {
-	input := []byte("aaaaa")
-	output := make([]byte, 256)
-	octets := 3
-
-	n, err := Encode(&input, octets, &output)
-
-	expected := []byte("YWFh")
-	if n != len(expected) || !bytes.Equal(output[:n], expected) || err != nil {
-		t.Logf("\nInput:\n%v\t%v", octets, input)
-		t.Logf("\nExpected:\n%v\t%v\nActual:\n%v\t%v", len(expected), expected, n, output[:n])
-		t.Logf("err: %v", err)
-		t.Fail()
-	}
-}
-
-func TestSmallOutputBuffer(t *testing.T) {
-	input := []byte("aaaaaaaaaa")
-	output := make([]byte, 4)
-
-	n, err := Encode(&input, len(input), &output)
-
-	if n != 0 || err == nil {
-		t.Logf("\nInput:\n%v\t%v", len(input), input)
-		t.Logf("\nExpected:\n%v\t%v\nActual:\n%v\t%v", 0, []byte{}, n, output[:n])
-		t.Logf("err: %v", err)
+func TestSampleBigInput(t *testing.T) {
+	input := "On the other hand, we denounce with righteous indignation and dislike men who are so beguiled and demoralized by the charms of pleasure of the moment, so blinded by desire, that they cannot foresee the pain and trouble that are bound to ensue; and equal blame belongs to those who fail in their duty through weakness of will, which is the same as saying through shrinking from toil and pain. These cases are perfectly simple and easy to distinguish. In a free hour, when our power of choice is untrammelled and when nothing prevents our being able to do what we like best, every pleasure is to be welcomed and every pain avoided. But in certain circumstances and owing to the claims of duty or the obligations of business it will frequently occur that pleasures have to be repudiated and annoyances accepted. The wise man therefore always holds in these matters to this principle of selection: he rejects pleasures to secure other greater pleasures, or else he endures pains to avoid worse pains.."
+	expected := "T24gdGhlIG90aGVyIGhhbmQsIHdlIGRlbm91bmNlIHdpdGggcmlnaHRlb3VzIGluZGlnbmF0aW9uIGFuZCBkaXNsaWtlIG1lbiB3aG8gYXJlIHNvIGJlZ3VpbGVkIGFuZCBkZW1vcmFsaXplZCBieSB0aGUgY2hhcm1zIG9mIHBsZWFzdXJlIG9mIHRoZSBtb21lbnQsIHNvIGJsaW5kZWQgYnkgZGVzaXJlLCB0aGF0IHRoZXkgY2Fubm90IGZvcmVzZWUgdGhlIHBhaW4gYW5kIHRyb3VibGUgdGhhdCBhcmUgYm91bmQgdG8gZW5zdWU7IGFuZCBlcXVhbCBibGFtZSBiZWxvbmdzIHRvIHRob3NlIHdobyBmYWlsIGluIHRoZWlyIGR1dHkgdGhyb3VnaCB3ZWFrbmVzcyBvZiB3aWxsLCB3aGljaCBpcyB0aGUgc2FtZSBhcyBzYXlpbmcgdGhyb3VnaCBzaHJpbmtpbmcgZnJvbSB0b2lsIGFuZCBwYWluLiBUaGVzZSBjYXNlcyBhcmUgcGVyZmVjdGx5IHNpbXBsZSBhbmQgZWFzeSB0byBkaXN0aW5ndWlzaC4gSW4gYSBmcmVlIGhvdXIsIHdoZW4gb3VyIHBvd2VyIG9mIGNob2ljZSBpcyB1bnRyYW1tZWxsZWQgYW5kIHdoZW4gbm90aGluZyBwcmV2ZW50cyBvdXIgYmVpbmcgYWJsZSB0byBkbyB3aGF0IHdlIGxpa2UgYmVzdCwgZXZlcnkgcGxlYXN1cmUgaXMgdG8gYmUgd2VsY29tZWQgYW5kIGV2ZXJ5IHBhaW4gYXZvaWRlZC4gQnV0IGluIGNlcnRhaW4gY2lyY3Vtc3RhbmNlcyBhbmQgb3dpbmcgdG8gdGhlIGNsYWltcyBvZiBkdXR5IG9yIHRoZSBvYmxpZ2F0aW9ucyBvZiBidXNpbmVzcyBpdCB3aWxsIGZyZXF1ZW50bHkgb2NjdXIgdGhhdCBwbGVhc3VyZXMgaGF2ZSB0byBiZSByZXB1ZGlhdGVkIGFuZCBhbm5veWFuY2VzIGFjY2VwdGVkLiBUaGUgd2lzZSBtYW4gdGhlcmVmb3JlIGFsd2F5cyBob2xkcyBpbiB0aGVzZSBtYXR0ZXJzIHRvIHRoaXMgcHJpbmNpcGxlIG9mIHNlbGVjdGlvbjogaGUgcmVqZWN0cyBwbGVhc3VyZXMgdG8gc2VjdXJlIG90aGVyIGdyZWF0ZXIgcGxlYXN1cmVzLCBvciBlbHNlIGhlIGVuZHVyZXMgcGFpbnMgdG8gYXZvaWQgd29yc2UgcGFpbnMuLg=="
+	var buffer bytes.Buffer
+	btoa(strings.NewReader(input), &buffer)
+	actual := buffer.String()
+	if actual != expected {
+		t.Logf("\nExpected:\n%v\nActual:\n%v", expected, actual)
 		t.Fail()
 	}
 }
