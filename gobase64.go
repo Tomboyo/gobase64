@@ -18,20 +18,29 @@ var charset = [64]byte{
 
 // sextuple to chars
 // assumes output is initially empty
-func getChars(buffer *[]byte) (string, error) {
-	var out = "====" //technically smallest valid base64 string AKA 1 single 0 byte
+func getChars(buffer *[]byte, padding int) (string, error) {
+	var out string
 	var in = *buffer
 	var l = len(in)
-	if l > 3 {
-		return "", errors.New("too many bytes")
+	if l != 3 {
+		return "", errors.New("expected 3 bytes")
 	}
 	if l > 0 {
 		var unsigned = binary.BigEndian.Uint32(append([]byte{0x00}, in...))
-		var part1 = (unsigned & 0x003F)
-		var part2 = bits.RotateLeft32((unsigned & 0x0FC0), -6)
-		var part3 = bits.RotateLeft32((unsigned & 0x3F000), -12)
-		var part4 = bits.RotateLeft32((unsigned & 0xFC0000), -18)
-		out = string(charset[part4]) + string(charset[part3]) + string(charset[part2]) + string(charset[part1])
+		var part1, part2, part3, part4 string
+		if padding > 0 {
+			part1 = "="
+		} else {
+			part1 = string(charset[(unsigned & 0x003F)])
+		}
+		if padding > 1 {
+			part2 = "="
+		} else {
+			part2 = string(charset[bits.RotateLeft32((unsigned&0x0FC0), -6)])
+		}
+		part3 = string(charset[bits.RotateLeft32((unsigned&0x3F000), -12)])
+		part4 = string(charset[bits.RotateLeft32((unsigned&0xFC0000), -18)])
+		out = part4 + part3 + part2 + part1
 	}
 	return out, nil
 }
@@ -39,13 +48,13 @@ func btoa(reader io.Reader, writer io.Writer) {
 	var inbuf = make([]byte, 3)
 
 	for {
-		_, err := reader.Read(inbuf)
+		r, err := reader.Read(inbuf)
 		if err == io.EOF {
 			break
 		} else if err != nil {
 			log.Fatal("Unexpected IO error", err)
 		}
-		out, err := getChars(&inbuf)
+		out, err := getChars(&inbuf, 3-r)
 		if err != nil {
 			log.Fatal("Unexpected Base64 encoding error", err)
 		}
