@@ -1,7 +1,7 @@
 package main
 
 import (
-	"container/list"
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -56,46 +56,6 @@ func getChars(buffer *[]byte, padding int) ([]byte, error) {
 	return out, nil
 }
 
-func btoa_parallel(reader io.Reader, writer io.Writer) {
-	c := make(chan *B64Chars, 16)
-
-	// load 3^10 bytes
-	var inbuf = make([]byte, 3)
-	var bl = 0
-	outbuffer := list.New()
-	outbuffer.Init()
-	for {
-		r, rerr := reader.Read(inbuf)
-		bl += r
-		if rerr != nil && rerr != io.EOF {
-			log.Fatal("Unexpected IO error", rerr)
-		}
-		// offload the getChars to a byte array
-		go func() {
-			s, err := getChars(&inbuf, 3-r)
-			if err != nil {
-				log.Fatal("Unexpected Base64 encoding error", err)
-			}
-			chars := new(B64Chars)
-			chars.value = s
-			c <- chars
-		}()
-		outbuffer.PushBack(<-c)
-		if rerr == io.EOF {
-			break
-		}
-	}
-	for e := outbuffer.Front(); e != nil; e = e.Next() {
-		writer.Write(e.Value.(*B64Chars).value)
-	}
-	var p = (bl % 3)
-	if p == 1 {
-		writer.Write([]byte{'=', '='})
-	} else if p == 2 {
-		writer.Write([]byte{'='})
-	}
-}
-
 func btoa(reader io.Reader, writer io.Writer) {
 	var inbuf = make([]byte, 3)
 	var bl = 0
@@ -125,15 +85,18 @@ func btoa(reader io.Reader, writer io.Writer) {
 func main() {
 	var reader = os.Stdin
 	var writer = os.Stdout
-	rawArgs := os.Args
-	if len(rawArgs) > 1 {
-		args := rawArgs[1:]
-		if args[0] == "p" {
-			btoa_parallel(reader, writer)
-		} else {
-			log.Fatal("Unknown flag", args[0])
+
+	// greedy read from stdin
+	inSize := 30 * 1024
+	pbuffer := make([]byte, inSize)
+	for {
+		inpRead, err := reader.Read(pbuffer)
+		if err != nil && err != io.EOF {
+			log.Fatal("Unexpected IO error", err)
+		} else if err == io.EOF {
+			break
 		}
-	} else {
-		btoa(reader, writer)
+		workBuffer := pbuffer[0:inpRead]
+		btoa(bytes.NewBuffer(workBuffer), writer)
 	}
 }
