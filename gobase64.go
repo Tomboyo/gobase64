@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"io"
 	"os"
 )
@@ -23,12 +22,14 @@ func Encode(reader io.Reader, writer io.Writer) (int, error) {
 			return written, err
 		}
 
-		n, err := encodeArray(inbuf, octetsIn, outbuf)
-		if err != nil {
-			return written, err
+		if octetsIn == 3 {
+			encodeTriplet(inbuf, outbuf)
+		} else {
+			// This is the end of input. Encode the last 1 or 2 bytes with trailing padding.
+			encodeTrailingOctets(inbuf[:octetsIn], outbuf)
 		}
 
-		n, err = writer.Write(outbuf[:n])
+		n, err := writer.Write(outbuf[:])
 		written += n
 		if err != nil {
 			return written, err
@@ -38,50 +39,29 @@ func Encode(reader io.Reader, writer io.Writer) (int, error) {
 	return written, nil
 }
 
-func encodeArray(in []byte, octets int, out []byte) (int, error) {
-	triplets := octets / 3
-	remainder := octets % 3
-	var outlen int
-	if remainder == 0 {
-		outlen = triplets * 4
+// in is a 3-byte slice
+// out is a 4-byte slice
+func encodeTriplet(in []byte, out []byte) {
+	// Take the appropriate masks across byte boundaries and join the results with bitwise or
+	out[0] = toB64((in[0] & u6m) >> 2)
+	out[1] = toB64(((in[0] & l2m) << 4) | ((in[1] & u4m) >> 4))
+	out[2] = toB64(((in[1] & l4m) << 2) | ((in[2] & u2m) >> 6))
+	out[3] = toB64(in[2] & l6m)
+}
+
+// in is a 1- or 2-byte slice
+// out is a 4-byte slice
+func encodeTrailingOctets(in []byte, out []byte) {
+	out[0] = toB64((in[0] & u6m) >> 2)
+	if len(in) == 1 {
+		out[1] = toB64((in[0] & l2m) << 4) // zero-pad lower 4 bits
+		out[2] = pad
+		out[3] = pad
 	} else {
-		outlen = triplets*4 + 4
+		out[1] = toB64(((in[0] & l2m) << 4) | ((in[1] & u4m) >> 4))
+		out[2] = toB64((in[1] & l4m) << 2) // zero-pad lower 2 bits
+		out[3] = pad
 	}
-
-	// TODO -- slices can append
-	if outlen > len(out) {
-		return 0, errors.New("output buffer is too small")
-	}
-
-	// 1. read all triplets
-	for triplet := 0; triplet < triplets; triplet++ {
-		i := triplet * 3
-		j := triplet * 4
-		out[j] = toB64((in[i] & u6m) >> 2)
-		out[j+1] = toB64(((in[i] & l2m) << 4) | ((in[i+1] & u4m) >> 4))
-		out[j+2] = toB64(((in[i+1] & l4m) << 2) | ((in[i+2] & u2m) >> 6))
-		out[j+3] = toB64(in[i+2] & l6m)
-	}
-
-	// 2. read remaining octets and add padding
-	if remainder != 0 {
-		i := triplets
-		j := i * 4
-
-		out[j] = toB64((in[i] & u6m) >> 2)
-
-		if remainder == 1 {
-			out[j+1] = toB64((in[i] & l2m) << 4) // zero-pad lower 4 bits
-			out[j+2] = pad
-			out[j+3] = pad
-		} else {
-			out[j+1] = toB64(((in[i] & l2m) << 4) | ((in[i+1] & u4m) >> 4))
-			out[j+2] = toB64((in[i+1] & l4m) << 2) // zero-pad lower 2 bits
-			out[j+3] = pad
-		}
-	}
-
-	return outlen, nil
 }
 
 var u6m = byte(253) // 1111 1100
