@@ -10,13 +10,6 @@ import (
 	"os"
 )
 
-// our worker count
-const WORKERS = 4
-
-type B64Chars struct {
-	value []byte
-}
-
 // Not immutable but runtime array slicing to create a pseudo-immutable array is slower
 var charset = [64]byte{
 	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
