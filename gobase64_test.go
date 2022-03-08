@@ -2,8 +2,12 @@ package main
 
 import (
 	"bytes"
+	"io/ioutil"
+	"math/rand"
+	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCharacters(t *testing.T) {
@@ -85,5 +89,41 @@ func TestLargeInput(t *testing.T) {
 		t.Logf("\nActual: len: %v\n%q", output.Len(), output.String())
 		t.Logf("err: %v", err)
 		t.Fail()
+	}
+}
+
+// Benchmark runs Encode on two files. File IO is slow, so this will emphasize our buffering strategy.
+func BenchmarkLargeInputFileIO(b *testing.B) {
+	input, err := ioutil.TempFile("", "benchmark-input")
+	if err != nil {
+		b.Error("Failed to create input tmpfile", err)
+	}
+	defer os.Remove(input.Name())
+
+	output, err := ioutil.TempFile("", "benchmark-output")
+	if err != nil {
+		b.Error("Failed to create output tmpfile", err)
+	}
+	defer os.Remove(output.Name())
+
+	b.StopTimer()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		// Fill the input with random bytes
+		data := make([]byte, 1_024)
+		rand.Seed(time.Now().UnixNano())
+		rand.Read(data)
+		_, err = input.WriteAt(data, 0)
+		if err != nil {
+			b.Error("Failed to write data to tmp file", err)
+		}
+
+		b.StartTimer()
+		_, err = Encode(input, output)
+		b.StopTimer()
+		if err != nil {
+			b.Error("Unexpected B64 error", err)
+		}
 	}
 }
