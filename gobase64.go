@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"io"
 	"os"
 )
@@ -10,12 +11,15 @@ func main() {
 }
 
 func Encode(reader io.Reader, writer io.Writer) (int, error) {
+	bufreader := bufio.NewReader(reader)
+	bufwriter := bufio.NewWriter(writer)
+
 	inbuf := make([]byte, 3)
 	outbuf := make([]byte, 4)
 	written := 0
 
 	for {
-		octetsIn, err := reader.Read(inbuf)
+		octetsIn, err := bufreader.Read(inbuf)
 		if err == io.EOF {
 			break
 		} else if err != nil {
@@ -29,12 +33,14 @@ func Encode(reader io.Reader, writer io.Writer) (int, error) {
 			encodeTrailingOctets(inbuf[:octetsIn], outbuf)
 		}
 
-		n, err := writer.Write(outbuf[:])
+		n, err := bufwriter.Write(outbuf[:])
 		written += n
 		if err != nil {
 			return written, err
 		}
 	}
+
+	bufwriter.Flush()
 
 	return written, nil
 }
