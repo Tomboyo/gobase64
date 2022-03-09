@@ -96,6 +96,7 @@ func TestLargeInput(t *testing.T) {
 // Baseline:            24,736,590,286 ns/op
 // Add buffered reader: 13,099,883,339 ns/op
 // Add buffered writer:          4,994 ns/op
+// Naive parallel impl:  2,683,206,126 ns/op
 func BenchmarkLargeInputFileIO(b *testing.B) {
 	input, err := ioutil.TempFile("", "benchmark-input")
 	if err != nil {
