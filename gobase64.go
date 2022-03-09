@@ -10,7 +10,15 @@ func main() {
 	Encode(os.Stdin, os.Stdout)
 }
 
+type chunk struct {
+	data []byte
+}
+
 func Encode(reader io.Reader, writer io.Writer) (int, error) {
+	return EncodeParallel(reader, writer)
+}
+
+func EncodeSerial(reader io.Reader, writer io.Writer) (int, error) {
 	bufreader := bufio.NewReader(reader)
 	bufwriter := bufio.NewWriter(writer)
 
@@ -43,6 +51,58 @@ func Encode(reader io.Reader, writer io.Writer) (int, error) {
 	bufwriter.Flush()
 
 	return written, nil
+}
+
+func EncodeParallel(reader io.Reader, writer io.Writer) (int, error) {
+	bufreader := bufio.NewReader(reader)
+	bufwriter := bufio.NewWriter(writer)
+	written := 0
+
+	inchan := make(chan chunk, 5)
+	outchan := make(chan chunk, 5)
+
+	go readWorker(bufreader, inchan)
+	go encodeWorker(inchan, outchan)
+
+	for next := range outchan {
+		n, err := bufwriter.Write(next.data)
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+
+	bufwriter.Flush()
+	return written, nil
+}
+
+func readWorker(reader io.Reader, inchan chan chunk) {
+	for i := 0; ; i++ {
+		// New slice every iteration to avoid shared memory over the channel
+		buf := make([]byte, 3)
+		octetsIn, err := reader.Read(buf)
+		if err == io.EOF {
+			close(inchan)
+			return
+		}
+
+		inchan <- chunk{buf[:octetsIn]}
+	}
+}
+
+func encodeWorker(inchan chan chunk, outchan chan chunk) {
+	for next := range inchan {
+		// New buffer every iteration to avoid shared memory over the channel.
+		buf := make([]byte, 4)
+		if len(next.data) == 3 {
+			encodeTriplet(next.data, buf)
+		} else {
+			encodeTrailingOctets(next.data, buf)
+		}
+		outchan <- chunk{buf}
+	}
+
+	close(outchan)
 }
 
 // in is a 3-byte slice
