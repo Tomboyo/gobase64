@@ -54,7 +54,7 @@ func EncodeSerial(reader io.Reader, writer io.Writer) (int, error) {
 }
 
 func EncodeParallel(reader io.Reader, writer io.Writer) (int, error) {
-	bufreader := bufio.NewReader(reader)
+	bufreader := bufio.NewReaderSize(reader, 3000)
 	bufwriter := bufio.NewWriter(writer)
 	written := 0
 
@@ -78,31 +78,44 @@ func EncodeParallel(reader io.Reader, writer io.Writer) (int, error) {
 
 func readWorker(reader io.Reader, inchan chan chunk) {
 	for i := 0; ; i++ {
-		// New slice every iteration to avoid shared memory over the channel
-		buf := make([]byte, 3)
+		// Note: if the bufio buffer size is e.g. 4096, then we would read 3k followed by 1096 bytes
+		// given infinite input. The easy solution is to make sure the buffer is also 3k.
+		buf := make([]byte, 3000)
 		octetsIn, err := reader.Read(buf)
 		if err == io.EOF {
 			close(inchan)
 			return
 		}
 
+		// Write an arbitrary-length buffer slice
 		inchan <- chunk{buf[:octetsIn]}
 	}
 }
 
 func encodeWorker(inchan chan chunk, outchan chan chunk) {
-	for next := range inchan {
-		// New buffer every iteration to avoid shared memory over the channel.
-		buf := make([]byte, 4)
-		if len(next.data) == 3 {
-			encodeTriplet(next.data, buf)
-		} else {
-			encodeTrailingOctets(next.data, buf)
-		}
-		outchan <- chunk{buf}
-	}
+	for {
+		next, more := <-inchan
+		outbuf := make([]byte, 4_000)
 
-	close(outchan)
+		if !more {
+			close(outchan)
+			return
+		}
+
+		i := 0
+		for ; i < len(next.data)/3; i++ {
+			encodeTriplet(next.data[i*3:(i+1)*3], outbuf[i*4:(i+1)*4])
+		}
+
+		// Add trailing padding.
+		r := len(next.data) % 3
+		if r == 0 {
+			outchan <- chunk{outbuf[:i*4]}
+		} else {
+			encodeTrailingOctets(next.data[i*3:i*3+r], outbuf[i*4:(i+1)*4])
+			outchan <- chunk{outbuf[:(i+1)*4]}
+		}
+	}
 }
 
 // in is a 3-byte slice

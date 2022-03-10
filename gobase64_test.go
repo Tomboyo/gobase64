@@ -78,15 +78,15 @@ func TestPaddingTwo(t *testing.T) {
 
 func TestLargeInput(t *testing.T) {
 	// Input is large enough to require more than one Read from the reader.
-	input := bytes.NewReader(make([]byte, 3_000))
+	input := bytes.NewReader(make([]byte, 6_000))
 	var output bytes.Buffer
 
 	n, err := Encode(input, &output)
 
-	expected := strings.Repeat("A", 4_000)
+	expected := strings.Repeat("A", 8_000)
 	if n != len(expected) || output.String() != expected || err != nil {
-		t.Logf("\nExpected: len: %v\n%q", len(expected), expected)
-		t.Logf("\nActual: len: %v\n%q", output.Len(), output.String())
+		t.Logf("\nExpected: len: %v\n", len(expected))
+		t.Logf("\nActual: len: %v\n", output.Len())
 		t.Logf("err: %v", err)
 		t.Fail()
 	}
@@ -97,6 +97,7 @@ func TestLargeInput(t *testing.T) {
 // Add buffered reader: 13,099,883,339 ns/op
 // Add buffered writer:          4,994 ns/op
 // Naive parallel impl:  2,683,206,126 ns/op
+// Smart chunk lengths:          6,044 ns/op
 func BenchmarkLargeInputFileIO(b *testing.B) {
 	input, err := ioutil.TempFile("", "benchmark-input")
 	if err != nil {
