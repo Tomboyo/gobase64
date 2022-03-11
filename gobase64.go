@@ -27,9 +27,10 @@ func EncodeSerial(reader io.Reader, writer io.Writer) (int, error) {
 	written := 0
 
 	for {
-		octetsIn, err := bufreader.Read(inbuf)
+		octetsIn, err := io.ReadFull(bufreader, inbuf)
 		if err == io.EOF {
-			break
+			bufwriter.Flush()
+			return written, nil
 		} else if err != nil {
 			return written, err
 		}
@@ -47,10 +48,6 @@ func EncodeSerial(reader io.Reader, writer io.Writer) (int, error) {
 			return written, err
 		}
 	}
-
-	bufwriter.Flush()
-
-	return written, nil
 }
 
 func EncodeParallel(reader io.Reader, writer io.Writer) (int, error) {

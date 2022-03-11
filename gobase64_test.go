@@ -93,10 +93,14 @@ func TestLargeInput(t *testing.T) {
 }
 
 // Benchmark runs Encode on two files. File IO is slow, so this will emphasize our buffering strategy.
+// cpu: Intel(R) Core(TM) i7-7600U CPU @ 2.80GHz
+// SERIAL
 // Baseline:            24,736,590,286 ns/op
 // Add buffered reader: 13,099,883,339 ns/op
 // Add buffered writer:          4,994 ns/op
-// Naive parallel impl:  2,683,206,126 ns/op
+// ReadFull fix                  5,137 ns/op
+// PARALLEL
+// Baseline:             2,683,206,126 ns/op
 // Smart chunk lengths:          6,044 ns/op
 func BenchmarkLargeInputFileIO(b *testing.B) {
 	input, err := ioutil.TempFile("", "benchmark-input")
