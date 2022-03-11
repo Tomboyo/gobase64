@@ -42,7 +42,7 @@ func EncodeSerial(reader io.Reader, writer io.Writer) (int, error) {
 			encodeTrailingOctets(inbuf[:octetsIn], outbuf)
 		}
 
-		n, err := bufwriter.Write(outbuf[:])
+		n, err := bufwriter.Write(outbuf)
 		written += n
 		if err != nil {
 			return written, err
