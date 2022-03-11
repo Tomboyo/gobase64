@@ -15,7 +15,7 @@ type chunk struct {
 }
 
 func Encode(reader io.Reader, writer io.Writer) (int, error) {
-	return EncodeParallel(reader, writer)
+	return EncodeSerial(reader, writer)
 }
 
 func EncodeSerial(reader io.Reader, writer io.Writer) (int, error) {
@@ -28,18 +28,16 @@ func EncodeSerial(reader io.Reader, writer io.Writer) (int, error) {
 
 	for {
 		octetsIn, err := io.ReadFull(bufreader, inbuf)
-		if err == io.EOF {
+		if err == nil {
+			encodeTriplet(inbuf, outbuf)
+		} else if err == io.ErrUnexpectedEOF {
+			// This is the end of input. Encode the last 1 or 2 bytes with trailing padding.
+			encodeTrailingOctets(inbuf[:octetsIn], outbuf)
+		} else if err == io.EOF {
 			bufwriter.Flush()
 			return written, nil
 		} else if err != nil {
 			return written, err
-		}
-
-		if octetsIn == 3 {
-			encodeTriplet(inbuf, outbuf)
-		} else {
-			// This is the end of input. Encode the last 1 or 2 bytes with trailing padding.
-			encodeTrailingOctets(inbuf[:octetsIn], outbuf)
 		}
 
 		n, err := bufwriter.Write(outbuf)
