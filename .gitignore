@@ -1,3 +1,6 @@
 # Don't track compiled binary
 gobase64
 gobase64.test
+
+perf.data
+perf.data.old
