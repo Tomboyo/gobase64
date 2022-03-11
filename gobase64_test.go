@@ -99,6 +99,7 @@ func TestLargeInput(t *testing.T) {
 // Add buffered reader: 13,099,883,339 ns/op
 // Add buffered writer:          4,994 ns/op
 // ReadFull fix                  5,137 ns/op
+// Fix again                     2,106 ns/op
 // PARALLEL
 // Baseline:             2,683,206,126 ns/op
 // Smart chunk lengths:          6,044 ns/op
