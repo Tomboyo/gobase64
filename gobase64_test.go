@@ -150,6 +150,7 @@ func Benchmark_EncodeSerial_LargeInputFileIO(b *testing.B) {
 // Baseline:             2,683,206,126 ns/op
 // Smart chunk lengths:          6,044 ns/op
 // ReadFull fix                  5,175 ns/op
+// If-ladder                     4,939 ns/op
 func Benchmark_EncodeParallel_LargeInputFileIO(b *testing.B) {
 	doBenchmarkLargeInputFileIO(b, EncodeParallel)
 }

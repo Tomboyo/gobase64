@@ -11,6 +11,7 @@ func main() {
 }
 
 const chanBuffers = 5
+const parInBufLen = 3_000
 
 func Encode(reader io.Reader, writer io.Writer) (int, error) {
 	return EncodeSerial(reader, writer)
@@ -47,7 +48,7 @@ func EncodeSerial(reader io.Reader, writer io.Writer) (int, error) {
 }
 
 func EncodeParallel(reader io.Reader, writer io.Writer) (int, error) {
-	bufreader := bufio.NewReaderSize(reader, 3000)
+	bufreader := bufio.NewReaderSize(reader, parInBufLen)
 	bufwriter := bufio.NewWriter(writer)
 	written := 0
 
@@ -71,17 +72,18 @@ func EncodeParallel(reader io.Reader, writer io.Writer) (int, error) {
 
 func readWorker(reader io.Reader, inchan chan []byte) {
 	for {
-		buf := make([]byte, 3000)
+		buf := make([]byte, parInBufLen)
 		octetsIn, err := io.ReadFull(reader, buf)
-		if err == io.ErrUnexpectedEOF {
+		if err == nil {
+			// Most common case is a sucessful full-buffer read since buffer sizes are aligned.
+			inchan <- buf[:octetsIn]
+		} else if err == io.ErrUnexpectedEOF {
 			inchan <- buf[:octetsIn]
 			close(inchan)
 			return
 		} else if err == io.EOF {
 			close(inchan)
 			return
-		} else {
-			inchan <- buf[:octetsIn]
 		}
 	}
 }
