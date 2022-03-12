@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -10,7 +11,17 @@ import (
 	"time"
 )
 
-func TestCharacters(t *testing.T) {
+type impl func(io.Reader, io.Writer) (int, error)
+
+func Test_Characters_Serial(t *testing.T) {
+	doTestCharacters(t, EncodeSerial)
+}
+
+func Test_Characters_Parallel(t *testing.T) {
+	doTestCharacters(t, EncodeParallel)
+}
+
+func doTestCharacters(t *testing.T, f impl) {
 	input := bytes.NewReader([]byte{
 		0, 16, 131, 16, 81, 135, 32, 146,
 		139, 48, 211, 143, 65, 20, 147, 81,
@@ -20,7 +31,7 @@ func TestCharacters(t *testing.T) {
 		93, 183, 227, 158, 187, 243, 223, 191})
 	var output bytes.Buffer
 
-	n, err := Encode(input, &output)
+	n, err := f(input, &output)
 
 	expected := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 	if n != len(expected) || output.String() != expected || err != nil {
@@ -31,11 +42,19 @@ func TestCharacters(t *testing.T) {
 	}
 }
 
-func TestPaddingZero(t *testing.T) {
+func Test_PaddingZero_Serial(t *testing.T) {
+	doTestPaddingZero(t, EncodeSerial)
+}
+
+func Test_PaddingZero_Parallel(t *testing.T) {
+	doTestPaddingZero(t, EncodeParallel)
+}
+
+func doTestPaddingZero(t *testing.T, f impl) {
 	input := strings.NewReader("aaa")
 	var output bytes.Buffer
 
-	n, err := Encode(input, &output)
+	n, err := f(input, &output)
 
 	expected := "YWFh"
 	if n != len(expected) || output.String() != expected || err != nil {
@@ -46,11 +65,18 @@ func TestPaddingZero(t *testing.T) {
 	}
 }
 
-func TestPaddingOne(t *testing.T) {
+func Test_PaddingOne_Serial(t *testing.T) {
+	doTestPaddingOne(t, EncodeSerial)
+}
+func Test_PaddingOne_Parallel(t *testing.T) {
+	doTestPaddingOne(t, EncodeParallel)
+}
+
+func doTestPaddingOne(t *testing.T, f impl) {
 	input := strings.NewReader("aaaaa")
 	var output bytes.Buffer
 
-	n, err := Encode(input, &output)
+	n, err := f(input, &output)
 
 	expected := "YWFhYWE="
 	if n != len(expected) || output.String() != expected || err != nil {
@@ -61,11 +87,19 @@ func TestPaddingOne(t *testing.T) {
 	}
 }
 
-func TestPaddingTwo(t *testing.T) {
+func Test_PaddingTwo_Serial(t *testing.T) {
+	doTestPaddingTwo(t, EncodeSerial)
+}
+
+func Test_PaddingTwo_Parallel(t *testing.T) {
+	doTestPaddingTwo(t, EncodeParallel)
+}
+
+func doTestPaddingTwo(t *testing.T, f impl) {
 	input := strings.NewReader("aaaa")
 	var output bytes.Buffer
 
-	n, err := Encode(input, &output)
+	n, err := f(input, &output)
 
 	expected := "YWFhYQ=="
 	if n != len(expected) || output.String() != expected || err != nil {
@@ -76,12 +110,20 @@ func TestPaddingTwo(t *testing.T) {
 	}
 }
 
-func TestLargeInput(t *testing.T) {
+func Test_LargeInput_Serial(t *testing.T) {
+	doTestLargeInput(t, EncodeSerial)
+}
+
+func Test_LargeInput_Parallel(t *testing.T) {
+	doTestLargeInput(t, EncodeParallel)
+}
+
+func doTestLargeInput(t *testing.T, f impl) {
 	// Input is large enough to require more than one Read from the reader.
 	input := bytes.NewReader(make([]byte, 6_000))
 	var output bytes.Buffer
 
-	n, err := Encode(input, &output)
+	n, err := f(input, &output)
 
 	expected := strings.Repeat("A", 8_000)
 	if n != len(expected) || output.String() != expected || err != nil {
@@ -92,7 +134,6 @@ func TestLargeInput(t *testing.T) {
 	}
 }
 
-// Benchmark runs Encode on two files. File IO is slow, so this will emphasize our buffering strategy.
 // cpu: Intel(R) Core(TM) i7-7600U CPU @ 2.80GHz
 // SERIAL
 // Baseline:            24,736,590,286 ns/op
@@ -100,10 +141,20 @@ func TestLargeInput(t *testing.T) {
 // Add buffered writer:          4,994 ns/op
 // ReadFull fix                  5,137 ns/op
 // If-ladder order               2,106 ns/op
+func Benchmark_EncodeSerial_LargeInputFileIO(b *testing.B) {
+	doBenchmarkLargeInputFileIO(b, EncodeSerial)
+}
+
+// cpu: Intel(R) Core(TM) i7-7600U CPU @ 2.80GHz
 // PARALLEL
 // Baseline:             2,683,206,126 ns/op
 // Smart chunk lengths:          6,044 ns/op
-func BenchmarkLargeInputFileIO(b *testing.B) {
+func Benchmark_EncodeParallel_LargeInputFileIO(b *testing.B) {
+	doBenchmarkLargeInputFileIO(b, EncodeParallel)
+}
+
+// Benchmark runs Encode on two files. File IO is slow, so this will emphasize our buffering strategy.
+func doBenchmarkLargeInputFileIO(b *testing.B, impl func(io.Reader, io.Writer) (int, error)) {
 	input, err := ioutil.TempFile("", "benchmark-input")
 	if err != nil {
 		b.Error("Failed to create input tmpfile", err)
@@ -128,7 +179,8 @@ func BenchmarkLargeInputFileIO(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, err = Encode(input, output)
+		// _, err = Encode(input, output)
+		_, err = impl(input, output)
 		if err != nil {
 			b.Error("Unexpected B64 error", err)
 		}
