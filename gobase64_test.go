@@ -21,6 +21,10 @@ func Test_Characters_Parallel(t *testing.T) {
 	doTestCharacters(t, EncodeParallel)
 }
 
+func Test_Characters_Stdlib(t *testing.T) {
+	doTestCharacters(t, EncodeStdlib)
+}
+
 func doTestCharacters(t *testing.T, f impl) {
 	input := bytes.NewReader([]byte{
 		0, 16, 131, 16, 81, 135, 32, 146,
@@ -34,9 +38,10 @@ func doTestCharacters(t *testing.T, f impl) {
 	n, err := f(input, &output)
 
 	expected := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-	if n != len(expected) || output.String() != expected || err != nil {
+	o := output.String()
+	if n != len(expected) || o != expected || err != nil {
 		t.Logf("\nExpected: len: %v\n%q", len(expected), expected)
-		t.Logf("\nActual: len: %v\n%q", output.Len(), output.String())
+		t.Logf("\nActual: n: %v len: %v\n%q", n, output.Len(), output.String())
 		t.Logf("err: %v", err)
 		t.Fail()
 	}
@@ -48,6 +53,10 @@ func Test_PaddingZero_Serial(t *testing.T) {
 
 func Test_PaddingZero_Parallel(t *testing.T) {
 	doTestPaddingZero(t, EncodeParallel)
+}
+
+func Test_PaddingZero_Stdlib(t *testing.T) {
+	doTestPaddingZero(t, EncodeStdlib)
 }
 
 func doTestPaddingZero(t *testing.T, f impl) {
@@ -72,6 +81,10 @@ func Test_PaddingOne_Parallel(t *testing.T) {
 	doTestPaddingOne(t, EncodeParallel)
 }
 
+func Test_PaddingOne_Stdlib(t *testing.T) {
+	doTestPaddingOne(t, EncodeStdlib)
+}
+
 func doTestPaddingOne(t *testing.T, f impl) {
 	input := strings.NewReader("aaaaa")
 	var output bytes.Buffer
@@ -81,7 +94,7 @@ func doTestPaddingOne(t *testing.T, f impl) {
 	expected := "YWFhYWE="
 	if n != len(expected) || output.String() != expected || err != nil {
 		t.Logf("\nExpected: len: %v\n%q", len(expected), expected)
-		t.Logf("\nActual: len: %v\n%q", output.Len(), output.String())
+		t.Logf("\nActual: n: %v len: %v\n%q", n, output.Len(), output.String())
 		t.Logf("err: %v", err)
 		t.Fail()
 	}
@@ -95,6 +108,10 @@ func Test_PaddingTwo_Parallel(t *testing.T) {
 	doTestPaddingTwo(t, EncodeParallel)
 }
 
+func Test_PaddingTwo_Stdlib(t *testing.T) {
+	doTestPaddingTwo(t, EncodeStdlib)
+}
+
 func doTestPaddingTwo(t *testing.T, f impl) {
 	input := strings.NewReader("aaaa")
 	var output bytes.Buffer
@@ -104,7 +121,7 @@ func doTestPaddingTwo(t *testing.T, f impl) {
 	expected := "YWFhYQ=="
 	if n != len(expected) || output.String() != expected || err != nil {
 		t.Logf("\nExpected: len: %v\n%q", len(expected), expected)
-		t.Logf("\nActual: len: %v\n%q", output.Len(), output.String())
+		t.Logf("\nActual: n: %v len: %v\n%q", n, output.Len(), output.String())
 		t.Logf("err: %v", err)
 		t.Fail()
 	}
@@ -116,6 +133,10 @@ func Test_LargeInput_Serial(t *testing.T) {
 
 func Test_LargeInput_Parallel(t *testing.T) {
 	doTestLargeInput(t, EncodeParallel)
+}
+
+func Test_LargeInput_Stdlib(t *testing.T) {
+	doTestLargeInput(t, EncodeStdlib)
 }
 
 func doTestLargeInput(t *testing.T, f impl) {
@@ -153,6 +174,12 @@ func Benchmark_EncodeSerial_LargeInputFileIO(b *testing.B) {
 // If-ladder                     4,939 ns/op
 func Benchmark_EncodeParallel_LargeInputFileIO(b *testing.B) {
 	doBenchmarkLargeInputFileIO(b, EncodeParallel)
+}
+
+// cpu: Intel(R) Core(TM) i7-7600U CPU @ 2.80GHz
+// Buffered, baeline:    7,522,238,459 ns/op
+func Benchmark_Stdlib_LargeInputFileIO(b *testing.B) {
+	doBenchmarkLargeInputFileIO(b, EncodeStdlib)
 }
 
 // Benchmark runs Encode on two files. File IO is slow, so this will emphasize our buffering strategy.

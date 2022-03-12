@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/base64"
 	"io"
 	"os"
 )
@@ -15,6 +16,49 @@ const parInBufLen = 3_000
 
 func Encode(reader io.Reader, writer io.Writer) (int, error) {
 	return EncodeSerial(reader, writer)
+}
+
+func EncodeStdlib(reader io.Reader, writer io.Writer) (int, error) {
+	encoder := base64.NewEncoder(base64.StdEncoding, writer)
+	input := bufio.NewReader(reader)
+	inbuf := make([]byte, 3)
+	written := 0
+	var oerr error
+	for {
+		octetsIn, err := io.ReadFull(input, inbuf)
+		if err == nil {
+			n, werr := encoder.Write(inbuf)
+			written += n
+			if werr != nil {
+				oerr = werr
+				break
+			}
+		} else if err == io.ErrUnexpectedEOF {
+			n, werr := encoder.Write(inbuf[:octetsIn])
+			written += n
+			if werr != nil {
+				oerr = werr
+				break
+			}
+		} else if err == io.EOF {
+			werr := encoder.Close()
+			if werr != nil {
+				oerr = err
+				break
+			}
+			oerr = nil
+			break
+		} else {
+			oerr = err
+			break
+		}
+	}
+
+	n := (4 * (written / 3))
+	if (written % 3) > 0 {
+		n += 4
+	}
+	return n, oerr
 }
 
 func EncodeSerial(reader io.Reader, writer io.Writer) (int, error) {
