@@ -10,9 +10,7 @@ func main() {
 	Encode(os.Stdin, os.Stdout)
 }
 
-type chunk struct {
-	data []byte
-}
+const chanBuffers = 5
 
 func Encode(reader io.Reader, writer io.Writer) (int, error) {
 	return EncodeSerial(reader, writer)
@@ -53,14 +51,14 @@ func EncodeParallel(reader io.Reader, writer io.Writer) (int, error) {
 	bufwriter := bufio.NewWriter(writer)
 	written := 0
 
-	inchan := make(chan chunk, 5)
-	outchan := make(chan chunk, 5)
+	inchan := make(chan []byte, chanBuffers)
+	outchan := make(chan []byte, chanBuffers)
 
 	go readWorker(bufreader, inchan)
 	go encodeWorker(inchan, outchan)
 
 	for next := range outchan {
-		n, err := bufwriter.Write(next.data)
+		n, err := bufwriter.Write(next)
 		written += n
 		if err != nil {
 			return written, err
@@ -71,24 +69,24 @@ func EncodeParallel(reader io.Reader, writer io.Writer) (int, error) {
 	return written, nil
 }
 
-func readWorker(reader io.Reader, inchan chan chunk) {
+func readWorker(reader io.Reader, inchan chan []byte) {
 	for {
 		buf := make([]byte, 3000)
 		octetsIn, err := io.ReadFull(reader, buf)
 		if err == io.ErrUnexpectedEOF {
-			inchan <- chunk{buf[:octetsIn]}
+			inchan <- buf[:octetsIn]
 			close(inchan)
 			return
 		} else if err == io.EOF {
 			close(inchan)
 			return
 		} else {
-			inchan <- chunk{buf[:octetsIn]}
+			inchan <- buf[:octetsIn]
 		}
 	}
 }
 
-func encodeWorker(inchan chan chunk, outchan chan chunk) {
+func encodeWorker(inchan chan []byte, outchan chan []byte) {
 	for {
 		next, more := <-inchan
 		outbuf := make([]byte, 4_000)
@@ -99,17 +97,17 @@ func encodeWorker(inchan chan chunk, outchan chan chunk) {
 		}
 
 		i := 0
-		for ; i < len(next.data)/3; i++ {
-			encodeTriplet(next.data[i*3:(i+1)*3], outbuf[i*4:(i+1)*4])
+		for ; i < len(next)/3; i++ {
+			encodeTriplet(next[i*3:(i+1)*3], outbuf[i*4:(i+1)*4])
 		}
 
 		// Add trailing padding.
-		r := len(next.data) % 3
+		r := len(next) % 3
 		if r == 0 {
-			outchan <- chunk{outbuf[:i*4]}
+			outchan <- outbuf[:i*4]
 		} else {
-			encodeTrailingOctets(next.data[i*3:i*3+r], outbuf[i*4:(i+1)*4])
-			outchan <- chunk{outbuf[:(i+1)*4]}
+			encodeTrailingOctets(next[i*3:i*3+r], outbuf[i*4:(i+1)*4])
+			outchan <- outbuf[:(i+1)*4]
 		}
 	}
 }
