@@ -72,18 +72,19 @@ func EncodeParallel(reader io.Reader, writer io.Writer) (int, error) {
 }
 
 func readWorker(reader io.Reader, inchan chan chunk) {
-	for i := 0; ; i++ {
-		// Note: if the bufio buffer size is e.g. 4096, then we would read 3k followed by 1096 bytes
-		// given infinite input. The easy solution is to make sure the buffer is also 3k.
+	for {
 		buf := make([]byte, 3000)
-		octetsIn, err := reader.Read(buf)
-		if err == io.EOF {
+		octetsIn, err := io.ReadFull(reader, buf)
+		if err == io.ErrUnexpectedEOF {
+			inchan <- chunk{buf[:octetsIn]}
 			close(inchan)
 			return
+		} else if err == io.EOF {
+			close(inchan)
+			return
+		} else {
+			inchan <- chunk{buf[:octetsIn]}
 		}
-
-		// Write an arbitrary-length buffer slice
-		inchan <- chunk{buf[:octetsIn]}
 	}
 }
 
